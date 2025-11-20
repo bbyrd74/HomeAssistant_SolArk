@@ -1,19 +1,18 @@
 # Changelog
 
-## 4.0.1
-- Minor release packaging for GitHub/HACS.
-- Confirmed advanced file logging to `custom_components/solark/solark_debug.log`.
-- Ensured STROG / protocol-2 computed power sensors are wired:
+## 4.0.2
+- Added additional sensors:
+  - Battery DC voltage (`battery_dc_voltage`)
+  - Battery charge current (`battery_current`)
+  - Inverter output voltage/current (`inverter_output_voltage`, `inverter_output_current`)
+  - Grid meter per-phase powers (`grid_meter_a`, `grid_meter_b`, `grid_meter_c`)
+  - Per-string PV powers (`pv_string_1_power` … `pv_string_12_power`)
+  - Direct grid import/export power (`grid_import_power`, `grid_export_power`) when available.
+- Kept STROG / protocol-2 computed aggregate values:
   - `pv_power`, `load_power`, `grid_power`, `battery_power`, `battery_soc`.
-- Polling interval exposed both in initial config and options flow.
+
+## 4.0.1
+- Minor packaging for GitHub/HACS and logging verification.
 
 ## 4.0.0
-- Added computed power values for STROG / protocol-2 inverters:
-  - PV Power = Σ(voltN × currentN) for MPPT strings.
-  - Load Power = inverterOutputVoltage × curCurrent × pf.
-  - Grid Power = meterA + meterB + meterC.
-  - Battery Power = curVolt × chargeCurrent.
-  - Battery SOC from curCap / batteryCap.
-- Added energy today/total and detailed battery & limit parameters.
-- Implemented OAuth login with legacy fallback.
-- Added diagnostics and file-based debug logging.
+- Initial STROG / protocol-2 support with computed PV/load/grid/battery power and SOC.

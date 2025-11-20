@@ -27,7 +27,6 @@ if not any(
         )
         file_handler.setFormatter(formatter)
         _LOGGER.addHandler(file_handler)
-        # Ensure debug logs are emitted
         _LOGGER.setLevel(logging.DEBUG)
         _LOGGER.debug("SolArk file logger initialized at %s", LOG_FILE)
     except Exception as e:  # noqa: BLE001
@@ -482,7 +481,10 @@ class SolArkCloudAPI:
             sensors["pv_power"] = pv_power_direct
         if load_power_direct:
             sensors["load_power"] = load_power_direct
-        # If we have import/export we can combine:
+        if grid_import_power_direct:
+            sensors["grid_import_power"] = grid_import_power_direct
+        if grid_export_power_direct:
+            sensors["grid_export_power"] = grid_export_power_direct
         if grid_import_power_direct or grid_export_power_direct:
             sensors["grid_power"] = grid_import_power_direct - grid_export_power_direct
         if batt_power_direct:
@@ -499,7 +501,9 @@ class SolArkCloudAPI:
                 v = self._safe_float(data.get(f"volt{i}"))
                 c = self._safe_float(data.get(f"current{i}"))
                 if v and c:
-                    pv_sum += v * c
+                    string_power = v * c
+                    sensors[f"pv_string_{i}_power"] = string_power
+                    pv_sum += string_power
             if pv_sum:
                 sensors["pv_power"] = pv_sum
 
@@ -511,23 +515,38 @@ class SolArkCloudAPI:
             load_power = vout * cur * pf
             if load_power:
                 sensors["load_power"] = load_power
+        # expose raw inverter output voltage + current
+        sensors["inverter_output_voltage"] = self._safe_float(
+            data.get("inverterOutputVoltage")
+        )
+        sensors["inverter_output_current"] = self._safe_float(
+            data.get("curCurrent")
+        )
 
         # Grid power from meterA/B/C
-        if "grid_power" not in sensors:
-            meter_a = self._safe_float(data.get("meterA"))
-            meter_b = self._safe_float(data.get("meterB"))
-            meter_c = self._safe_float(data.get("meterC"))
-            grid_power = meter_a + meter_b + meter_c
-            if grid_power:
-                sensors["grid_power"] = grid_power
+        meter_a = self._safe_float(data.get("meterA"))
+        meter_b = self._safe_float(data.get("meterB"))
+        meter_c = self._safe_float(data.get("meterC"))
+        if meter_a or meter_b or meter_c:
+            sensors["grid_meter_a"] = meter_a
+            sensors["grid_meter_b"] = meter_b
+            sensors["grid_meter_c"] = meter_c
+            if "grid_power" not in sensors:
+                grid_power = meter_a + meter_b + meter_c
+                if grid_power:
+                    sensors["grid_power"] = grid_power
 
         # Battery power from DC voltage * chargeCurrent
+        cur_volt = self._safe_float(data.get("curVolt"))
+        charge_current = self._safe_float(data.get("chargeCurrent"))
         if "battery_power" not in sensors:
-            cur_volt = self._safe_float(data.get("curVolt"))
-            charge_current = self._safe_float(data.get("chargeCurrent"))
             batt_power = cur_volt * charge_current
             if batt_power:
                 sensors["battery_power"] = batt_power
+
+        # expose raw DC bus voltage and battery current
+        sensors["battery_dc_voltage"] = cur_volt
+        sensors["battery_current"] = charge_current
 
         # Battery SOC from curCap / batteryCap
         if "battery_soc" not in sensors:

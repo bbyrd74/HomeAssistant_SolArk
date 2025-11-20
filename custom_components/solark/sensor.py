@@ -26,7 +26,7 @@ class SolArkSensorDescription(SensorEntityDescription):
 
 
 SENSOR_DESCRIPTIONS: list[SolArkSensorDescription] = [
-    # Computed real-time power values
+    # Computed / direct real-time power values
     SolArkSensorDescription(
         key="pv_power",
         name="PV Power",
@@ -41,7 +41,19 @@ SENSOR_DESCRIPTIONS: list[SolArkSensorDescription] = [
     ),
     SolArkSensorDescription(
         key="grid_power",
-        name="Grid Power",
+        name="Grid Power (net)",
+        native_unit_of_measurement="W",
+        device_class=SensorDeviceClass.POWER,
+    ),
+    SolArkSensorDescription(
+        key="grid_import_power",
+        name="Grid Import Power",
+        native_unit_of_measurement="W",
+        device_class=SensorDeviceClass.POWER,
+    ),
+    SolArkSensorDescription(
+        key="grid_export_power",
+        name="Grid Export Power",
         native_unit_of_measurement="W",
         device_class=SensorDeviceClass.POWER,
     ),
@@ -51,11 +63,45 @@ SENSOR_DESCRIPTIONS: list[SolArkSensorDescription] = [
         native_unit_of_measurement="W",
         device_class=SensorDeviceClass.POWER,
     ),
+    # Battery SOC & currents
     SolArkSensorDescription(
         key="battery_soc",
         name="Battery SOC",
         native_unit_of_measurement="%",
     ),
+    SolArkSensorDescription(
+        key="battery_current",
+        name="Battery Charge Current",
+        native_unit_of_measurement="A",
+    ),
+    # DC/AC voltages & currents
+    SolArkSensorDescription(
+        key="battery_dc_voltage",
+        name="Battery DC Voltage",
+        native_unit_of_measurement="V",
+        device_class=SensorDeviceClass.VOLTAGE,
+    ),
+    SolArkSensorDescription(
+        key="inverter_output_voltage",
+        name="Inverter Output Voltage",
+        native_unit_of_measurement="V",
+        device_class=SensorDeviceClass.VOLTAGE,
+    ),
+    SolArkSensorDescription(
+        key="inverter_output_current",
+        name="Inverter Output Current",
+        native_unit_of_measurement="A",
+    ),
+    # Per-string PV powers
+    *[
+        SolArkSensorDescription(
+            key=f"pv_string_{i}_power",
+            name=f"PV String {i} Power",
+            native_unit_of_measurement="W",
+            device_class=SensorDeviceClass.POWER,
+        )
+        for i in range(1, 13)
+    ],
     # Energy
     SolArkSensorDescription(
         key="energy_today",
@@ -124,6 +170,25 @@ SENSOR_DESCRIPTIONS: list[SolArkSensorDescription] = [
     SolArkSensorDescription(
         key="solar_max_sell_power",
         name="Solar Max Sell Power",
+        native_unit_of_measurement="W",
+        device_class=SensorDeviceClass.POWER,
+    ),
+    # Grid meters
+    SolArkSensorDescription(
+        key="grid_meter_a",
+        name="Grid Meter Phase A",
+        native_unit_of_measurement="W",
+        device_class=SensorDeviceClass.POWER,
+    ),
+    SolArkSensorDescription(
+        key="grid_meter_b",
+        name="Grid Meter Phase B",
+        native_unit_of_measurement="W",
+        device_class=SensorDeviceClass.POWER,
+    ),
+    SolArkSensorDescription(
+        key="grid_meter_c",
+        name="Grid Meter Phase C",
         native_unit_of_measurement="W",
         device_class=SensorDeviceClass.POWER,
     ),
