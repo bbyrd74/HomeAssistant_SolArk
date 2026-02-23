@@ -546,20 +546,48 @@ class SolArkCloudAPI:
         if "loadOrEpsPower" in data:
             sensors["load_power"] = self._safe_float(data.get("loadOrEpsPower"))
 
-        # ----- Grid import/export from meterA/B/C -----
-        meter_a = self._safe_float(data.get("meterA"))
-        meter_b = self._safe_float(data.get("meterB"))
-        meter_c = self._safe_float(data.get("meterC"))
-        grid_net = meter_a + meter_b + meter_c
-
-        if grid_net != 0.0:
-            if grid_net > 0:
-                sensors["grid_import_power"] = grid_net
-                sensors["grid_export_power"] = 0.0
-            else:
-                sensors["grid_import_power"] = 0.0
-                sensors["grid_export_power"] = abs(grid_net)
+        # ----- Grid import/export from meterA/B/C or flow data -----
+        if "meterA" in data or "meterB" in data or "meterC" in data:
+            # This appears to be 3phase?
+            meter_a = self._safe_float(data.get("meterA"))
+            meter_b = self._safe_float(data.get("meterB"))
+            meter_c = self._safe_float(data.get("meterC"))
+            grid_net = meter_a + meter_b + meter_c
+            
+            if grid_net != 0.0:
+                if grid_net > 0:
+                    sensors["grid_import_power"] = grid_net
+                    sensors["grid_export_power"] = 0.0
+                else:
+                    sensors["grid_import_power"] = 0.0
+                    sensors["grid_export_power"] = abs(grid_net)
+                    
+        elif "toGrid" in data or "gridTo" in data:
+            # Use gridOrMeterPower with toGrid/gridTo flags
+            # Confirmed that a 2021 Solark12k with CTs on the 240v lines uses this
+            grid_or_meter = self._safe_float(data.get("gridOrMeterPower"))
+            to_grid = data.get("toGrid", False)
+            grid_to = data.get("gridTo", False)
+            
+            if grid_or_meter != 0.0:
+                if to_grid:
+                    # Power flowing TO grid (exporting)
+                    sensors["grid_export_power"] = abs(grid_or_meter)
+                    sensors["grid_import_power"] = 0.0
+                elif grid_to:
+                    # Power flowing FROM grid (importing)
+                    sensors["grid_import_power"] = abs(grid_or_meter)
+                    sensors["grid_export_power"] = 0.0
+                else:
+                    # Direction unclear, treat as import if positive
+                    if grid_or_meter > 0:
+                        sensors["grid_import_power"] = grid_or_meter
+                        sensors["grid_export_power"] = 0.0
+                    else:
+                        sensors["grid_import_power"] = 0.0
+                        sensors["grid_export_power"] = abs(grid_or_meter)
         else:
+            # Last resort: check for explicit fields
             if "gridImportPower" in data:
                 sensors["grid_import_power"] = self._safe_float(
                     data.get("gridImportPower")
