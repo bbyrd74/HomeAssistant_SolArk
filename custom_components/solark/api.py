@@ -563,6 +563,8 @@ class SolArkCloudAPI:
             else:
                 sensors["grid_export_power"] = abs(grid_net)
         else:
+            # other (non 3 phase?) inverters, for example a 2021 12k 240v singlephase uses toGrid and gridTo booleans
+            # and also it seems there is something else that uses gridImportPower and gridExportPower
             _LOGGER.debug("2 - grid_net == 0, checking elif condition")
             _LOGGER.debug("3 - toGrid in data: %s, gridTo in data: %s", "toGrid" in data, "gridTo" in data)
             _LOGGER.debug("4 - toGrid value: %s, gridTo value: %s", data.get("toGrid", False), data.get("gridTo", False))
