@@ -440,7 +440,7 @@ class SolArkCloudAPI:
                 _LOGGER.debug("Merging flow_data keys into live_data: %s", list(flow_data.keys()))
                 for k, v in flow_data.items():
                     # Do not overwrite energyToday/Total if already present
-                    if k in ("pvPower", "battPower", "gridOrMeterPower", "loadOrEpsPower", "soc"):
+                    if k in ("pvPower", "battPower", "gridOrMeterPower", "loadOrEpsPower", "soc", "toGrid", "gridTo"):
                         live_data[k] = v
         except Exception as e:  # noqa: BLE001
             _LOGGER.warning("Unable to merge flow data into live data: %s", e)
@@ -547,55 +547,52 @@ class SolArkCloudAPI:
             sensors["load_power"] = self._safe_float(data.get("loadOrEpsPower"))
 
         # ----- Grid import/export from meterA/B/C or flow data -----
-        if "meterA" in data or "meterB" in data or "meterC" in data:
-            # This appears to be 3phase?
-            meter_a = self._safe_float(data.get("meterA"))
-            meter_b = self._safe_float(data.get("meterB"))
-            meter_c = self._safe_float(data.get("meterC"))
-            grid_net = meter_a + meter_b + meter_c
-            
-            if grid_net != 0.0:
-                if grid_net > 0:
-                    sensors["grid_import_power"] = grid_net
-                    sensors["grid_export_power"] = 0.0
-                else:
-                    sensors["grid_import_power"] = 0.0
-                    sensors["grid_export_power"] = abs(grid_net)
-                    
-        elif "toGrid" in data or "gridTo" in data:
-            # Use gridOrMeterPower with toGrid/gridTo flags
-            # Confirmed that a 2021 Solark12k with CTs on the 240v lines uses this
-            grid_or_meter = self._safe_float(data.get("gridOrMeterPower"))
-            to_grid = data.get("toGrid", False)
-            grid_to = data.get("gridTo", False)
-            
-            if grid_or_meter != 0.0:
-                if to_grid:
-                    # Power flowing TO grid (exporting)
-                    sensors["grid_export_power"] = abs(grid_or_meter)
-                    sensors["grid_import_power"] = 0.0
-                elif grid_to:
-                    # Power flowing FROM grid (importing)
-                    sensors["grid_import_power"] = abs(grid_or_meter)
-                    sensors["grid_export_power"] = 0.0
-                else:
-                    # Direction unclear, treat as import if positive
-                    if grid_or_meter > 0:
-                        sensors["grid_import_power"] = grid_or_meter
-                        sensors["grid_export_power"] = 0.0
-                    else:
-                        sensors["grid_import_power"] = 0.0
-                        sensors["grid_export_power"] = abs(grid_or_meter)
+        sensors["grid_import_power"] = 0.0
+        sensors["grid_export_power"] = 0.0
+        meter_a = self._safe_float(data.get("meterA"))
+        meter_b = self._safe_float(data.get("meterB"))
+        meter_c = self._safe_float(data.get("meterC"))
+        grid_net = meter_a + meter_b + meter_c
+        
+        _LOGGER.debug("Meter check: A=%s, B=%s, C=%s, net=%s", meter_a, meter_b, meter_c, grid_net)
+        
+        if grid_net != 0.0:
+            _LOGGER.debug("1 - Taking meter branch (grid_net != 0)")
+            if grid_net > 0:
+                sensors["grid_import_power"] = grid_net
+            else:
+                sensors["grid_export_power"] = abs(grid_net)
         else:
-            # Last resort: check for explicit fields
-            if "gridImportPower" in data:
-                sensors["grid_import_power"] = self._safe_float(
-                    data.get("gridImportPower")
-                )
-            if "gridExportPower" in data:
-                sensors["grid_export_power"] = self._safe_float(
-                    data.get("gridExportPower")
-                )
+            _LOGGER.debug("2 - grid_net == 0, checking elif condition")
+            _LOGGER.debug("3 - toGrid in data: %s, gridTo in data: %s", "toGrid" in data, "gridTo" in data)
+            _LOGGER.debug("4 - toGrid value: %s, gridTo value: %s", data.get("toGrid", False), data.get("gridTo", False))
+            
+            if ("toGrid" in data or "gridTo" in data) and (data.get("toGrid", False) or data.get("gridTo", False)):
+                _LOGGER.debug("5 - Taking flow data branch")
+                grid_or_meter = self._safe_float(data.get("gridOrMeterPower"))
+                
+                if grid_or_meter != 0.0:
+                    if data.get("toGrid", False):
+                        _LOGGER.debug("6a - toGrid=True, exporting")
+                        sensors["grid_export_power"] = abs(grid_or_meter)
+                    else:
+                        _LOGGER.debug("6b - gridTo=True, importing")
+                        sensors["grid_import_power"] = abs(grid_or_meter)
+            else:
+                _LOGGER.debug("7 - Taking fallback branch")
+                # Last resort: check for explicit fields
+                if "gridImportPower" in data:
+                    _LOGGER.debug("8")
+                    sensors["grid_import_power"] = self._safe_float(
+                        data.get("gridImportPower")
+                    )
+                if "gridExportPower" in data:
+                    _LOGGER.debug("9")
+                    sensors["grid_export_power"] = self._safe_float(
+                        data.get("gridExportPower")
+                    )
+        
+        _LOGGER.debug("Final: import=%s, export=%s", sensors["grid_import_power"], sensors["grid_export_power"])
 
         # Ensure keys always exist
         sensors.setdefault("pv_power", 0.0)
